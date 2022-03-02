@@ -11,6 +11,6 @@ library("RColorBrewer")
 library(wesanderson)
 
 source("functionsSubs.R")
-source("assumptionsBU.R")
+source("assumptions.R")
 source("create_data.R")
 
