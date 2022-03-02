@@ -1,0 +1,295 @@
+---
+title: "BetterUp - Network Model"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: columns
+    vertical_layout: scroll
+---
+
+```{r setup, include=FALSE}
+
+source("mainshare.R")
+
+```   
+
+## Column {data-width="1000," data-height="1500"}
+
+### Active Members By Acquisition Source
+
+```{r width=1000, height=500}
+
+avgusers<-monthly_model %>%
+  group_by (month) %>%
+  summarize(
+            members=sum(ending),
+  ) %>% summarize(avg_users=mean(members))
+
+
+#avg_users <-avgMonth %>%
+#  summarize(avg_users=mean(members))
+
+#avgusers<-avg_users[1]
+
+growthTot <- monthly_model %>%
+  select (ending,retention_month,network_side) %>%
+  group_by(retention_month,network_side) %>%
+  summarize(ending=sum(ending))%>%
+  filter(ending>0) %>%
+  melt (id.vars=c("retention_month","network_side"))
+
+
+growthplot <- monthly_model %>%
+  select (ending,retention_month,network_side,traffic_source) %>%
+  group_by(retention_month,traffic_source,network_side) %>%
+  summarize(ending=sum(ending))%>%
+  filter(ending>0) %>%
+  melt (id.vars=c("retention_month","traffic_source","network_side"))
+
+
+p<-ggplot(data=growthplot)+ 
+    ggtitle(paste("Monthly Active Members"))+
+   geom_bar(stat = "identity",alpha=0.7,mapping = aes(x = retention_month,
+                            y = value,fill=traffic_source))+
+  scale_x_date(date_breaks="1 years",date_labels="%Y") +
+  scale_y_continuous(name=small_side,breaks=pretty_breaks(10)) +
+  scale_fill_brewer(palette="Dark2")+
+  theme_minimal()+
+  facet_grid(cols=vars(network_side),scales="free")+
+  labs(y="Members",x="Month",fill="Member Source")
+
+if (avgusers>1000000){
+  p<- p +
+    scale_y_continuous(labels = label_number(suffix = "M", scale = 1e-6))+
+  geom_text(data=growthTot,aes(x=retention_month,y=value,label=paste(round(value/1000000,1),"M")),size=2,color="#555555",vjust=-3,check_overlap=TRUE,position=position_jitter(width=1,height=1),fontface="bold")
+} else if (avgusers>1000){
+  p<- p +
+    scale_y_continuous(labels = label_number(suffix = "K", scale = 1e-3))+
+    geom_text(data=growthTot,aes(x=retention_month,y=value,label=paste(round(value/1000,1),"K")),size=2,color="#555555",vjust=-3,position=position_jitter(width=1,height=1))
+}
+
+ggplotly(p,tooltip="")
+
+
+```
+
+### Growth Accounting
+
+```{r width=1000, height=500}
+
+growthplot <- monthly_model %>%
+  select (new,churned,returning,resurrected,retention_month,network_side,traffic_source) %>%
+  group_by(retention_month,network_side) %>%
+  summarize(new=sum(new),
+            returning=sum(returning),
+            churned=sum(churned))%>%
+  filter(new>0) %>%
+  melt (id.vars=c("retention_month","network_side"))
+
+p<-ggplot(data=growthplot)+ 
+    ggtitle(paste("Monthly Active Member Growth Accounting"))+
+   geom_bar(stat = "identity",alpha=0.7,mapping = aes(x = retention_month,
+                            y = value,fill=variable))+
+  scale_x_date(date_breaks="1 years",date_labels="%Y") +
+  scale_y_continuous(name=small_side,breaks=pretty_breaks(10)) +
+  scale_fill_brewer(palette="Paired")+
+  theme_minimal()+
+  facet_grid(cols=vars(network_side),scale="free")
+
+if (avgusers>1000000){
+  p<- p +
+    scale_y_continuous(labels = label_number(suffix = " M", scale = 1e-6))
+  #geom_text(data=growthplot,aes(x=retention_month,y=value,label=paste(round(value/1000000,1),"M")),size=2,color="#333333",vjust=-3,check_overlap=TRUE,position=position_jitter(width=1,height=1),fontface="bold")
+} else if (avgusers>1000){
+  p<- p +
+    scale_y_continuous(labels = label_number(suffix = " K", scale = 1e-3))
+    #geom_text(data=growthplot,aes(x=retention_month,y=value,label=paste(value/1000," K")),size=2,color="#333333",vjust=-3,position=position_jitter(width=1,height=1))
+}
+ggplotly(p,tooltip='')
+```
+
+### Network Activity
+
+```{r}
+growthplot <- monthly_model %>%
+  select (impressions_out,impressions_in,retention_month,network_side,traffic_source) %>%
+  group_by(retention_month,traffic_source,network_side) %>%
+  summarize(imps_out=sum(impressions_out),
+             imps_in=sum(impressions_in))%>%
+  melt (id.vars=c("retention_month","traffic_source","network_side"))
+
+p<-ggplot(data=growthplot)+ 
+  ggtitle(paste("Monthly Sharing Impressions"))+
+   geom_bar(stat = "identity",alpha=0.7,mapping = aes(x = retention_month,
+                            y = value,fill=network_side))+
+  scale_x_date(date_breaks="1 years",date_labels="%Y") +
+  scale_y_continuous(name="Impressions",breaks=pretty_breaks(10)) +
+  scale_fill_brewer(name="Share Direction",palette="Dark2")+
+  theme_minimal()+
+  facet_grid(cols=vars(variable))
+
+p<- p +
+    scale_y_continuous( )
+
+avgshares<-monthly_model %>%
+  group_by (month) %>%
+  summarize(
+            shares=sum(impressions_out+impressions_in),
+  ) %>% summarize(avg_shares=mean(shares))
+
+if (avgshares>1000000){
+  p<- p +
+    scale_y_continuous(labels = label_number(suffix = " M", scale = 1e-6))
+} else if (avgshares>1000){
+  p<- p +
+    scale_y_continuous(labels = label_number(suffix = " K", scale = 1e-3))
+    #geom_text(data=growthplot,aes(x=retention_month,y=value,label=paste(round(value/1000,1)," K")),size=2,color="#333333",vjust=-3,position=position_jitter(width=1,height=1))
+}
+
+ggplotly(p)
+```
+
+
+```{r}
+# Create a triangle chart that foots to monthly model numbers using retention assumptions and math. 
+retention_plot <- monthly_model %>%
+  select (month,retention_month,network_side,ending,new) %>%
+  mutate(acquisition_year=format(month,format="%Y"),
+         retention_year=format(retention_month,format="%Y")) %>%
+  group_by(acquisition_year, retention_month, network_side) %>%
+  summarize(ending=sum(ending),
+            #new=sum(new),
+            #returning=sum(ending)-sum(new)
+            )%>%
+  filter(ending>0) %>%
+  melt (id.vars=c("acquisition_year","retention_month","network_side"))
+
+
+p<-ggplot(data=retention_plot)+ 
+  ggtitle(paste("Monthly Retention"))+
+   geom_bar(stat = "identity",alpha=0.7,mapping = aes(x = retention_month,
+                            y = value, fill=acquisition_year))+
+  scale_y_continuous(name="test",breaks=pretty_breaks(10)) +
+  theme_minimal()+
+  facet_grid(cols=vars(network_side))
+p<- p +
+    scale_y_continuous( )
+
+if (avgusers>1000){
+  p<- p +
+    scale_y_continuous(labels = label_number(suffix = " K", scale = 1e-3))
+}
+if (avgusers>1000000){
+  p<- p +
+    scale_y_continuous(labels = label_number(suffix = " M", scale = 1e-6))
+}
+
+#ggplotly(p)
+
+```
+
+### small side monetization
+
+```{r}
+
+rev_plot <- monthly_model %>%
+  select (retention_month,starting,network_side,ending,new,transactions,revenue) %>%
+  filter(network_side!="Company") %>%
+  mutate(
+         retention_year=format(retention_month,format="%Y")) %>%
+  group_by(retention_month) %>%
+  summarize(
+            users=sum(ending),
+            transactions=sum(transactions),
+            trans_per_user=sum(transactions)/sum(ending), 
+            revenue=sum(revenue),
+            small_side=sum(ifelse( network_side == small_side, ending, 0)),
+            big_side=sum(ifelse( network_side == big_side, ending, 0)),
+            rev_per_user=sum(revenue)/sum(ending)
+            )%>%
+  mutate(rpss=revenue/small_side,
+         rpbs=revenue/big_side)
+
+  avgrev<-rev_plot %>%
+  group_by (retention_month) %>%
+  summarize( revenue=sum(revenue)) %>%
+  summarize(revenue=mean(revenue))
+
+ avgrpp<-rev_plot %>%
+  group_by (retention_month) %>%
+  summarize( rpss=sum(rpss)) %>%
+  summarize(revenue=mean(rpss))
+
+
+
+p<-ggplot(data=rev_plot)+ 
+  ggtitle(paste("Monthly Revenue"))+
+   geom_bar(stat = "identity",alpha=0.7,mapping = aes(x = retention_month,
+                            y = revenue))+
+  scale_y_continuous(name=paste("Revenue"),breaks=pretty_breaks(10)) +
+  theme_minimal()
+
+
+if (avgrev>1000){
+  p<- p +
+    scale_y_continuous(labels = label_number(prefix="$", suffix = "K", scale = 1e-3))
+}
+if (avgrev>1000000){
+  p<- p +
+    scale_y_continuous(labels = label_number(prefix="$", suffix = "M", scale = 1e-6))
+}
+
+r<-ggplot(data=rev_plot)+ 
+  ggtitle(paste("Monthly Revenue per ",small_side,sep=""))+
+   geom_bar(stat = "identity",alpha=0.7,mapping = aes(x = retention_month,
+                            y = rpss))+
+  scale_y_continuous(name=paste("Rev/",small_side,sep = ""),breaks=pretty_breaks(10),labels = label_number(prefix="$")) +
+  theme_minimal()
+
+
+if (avgrpp>1000){
+  r<- r +
+    scale_y_continuous(labels = label_number(prefix="$", suffix = "K", scale = 1e-3))
+}
+if (avgrpp>1000000){
+  r<- r +
+    scale_y_continuous(labels = label_number(prefix="$", suffix = "M", scale = 1e-6))
+}
+
+
+ggplotly(p)
+```
+
+### Rev per member
+
+```{r}
+ggplotly(r)
+
+```
+
+### Rev per member
+
+```{r}
+q<-ggplot(data=rev_plot)+ 
+  ggtitle(paste("Monthly Revenue per ",big_side,sep=""))+
+   geom_bar(stat = "identity",alpha=0.7,mapping = aes(x = retention_month,
+                            y = rpbs))+
+  scale_y_continuous(name=paste("Rev/",big_side,sep = ""),breaks=pretty_breaks(10),labels = label_number(prefix="$")) +
+  theme_minimal()
+
+avgrpp<-rev_plot %>%
+  group_by (retention_month) %>%
+  summarize( rpbs=sum(rpbs)) %>%
+  summarize(revenue=mean(rpbs))
+
+if (avgrpp>1000){
+  q<- q +
+    scale_y_continuous(labels = label_number(prefix="$", suffix = "K", scale = 1e-3))
+}
+if (avgrpp>1000000){
+  q<- q +
+    scale_y_continuous(labels = label_number(prefix="$", suffix = "M", scale = 1e-6))
+}
+
+ggplotly(q)
+
+```
